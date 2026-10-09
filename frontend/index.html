@@ -339,9 +339,36 @@
             });
             if (res.ok) {
                 const data = await res.json();
-                const reply = data.summary || data.answer || JSON.stringify(data);
-                addMessage('bot', reply);
-                speakText(reply);
+                
+                let htmlReply = data.summary || data.answer || JSON.stringify(data);
+                
+                // If the backend provided recommendations (actions), render them beautifully
+                if (data.actions && data.actions.length > 0) {
+                    htmlReply += `<div class="mt-4 flex flex-col gap-2">
+                        <p class="text-[11px] uppercase tracking-widest font-semibold text-gray-500 mb-1">Recommended Actions</p>`;
+                    
+                    data.actions.forEach(action => {
+                        const priorityColor = action.priority?.toLowerCase() === 'high' ? 'text-red-600 bg-red-50 border-red-100' 
+                                            : action.priority?.toLowerCase() === 'medium' ? 'text-yellow-600 bg-yellow-50 border-yellow-100'
+                                            : 'text-green-600 bg-green-50 border-green-100';
+                        
+                        htmlReply += `
+                            <div class="p-3 bg-white border border-gray-200 rounded-lg shadow-sm flex flex-col gap-1">
+                                <div class="flex items-center justify-between">
+                                    <span class="font-semibold text-gray-900 text-xs">${action.task || 'Action'}</span>
+                                    <span class="text-[9px] px-2 py-0.5 rounded-full border font-bold uppercase tracking-wide ${priorityColor}">
+                                        ${action.priority || 'Normal'}
+                                    </span>
+                                </div>
+                                <span class="text-xs text-gray-600">${action.details || ''}</span>
+                            </div>
+                        `;
+                    });
+                    htmlReply += `</div>`;
+                }
+
+                addMessage('bot', htmlReply);
+                speakText(data.summary || 'Recommendations ready.');
             } else {
                 addMessage('system', 'Copilot offline.');
             }
