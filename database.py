@@ -19,6 +19,7 @@ def init_db():
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS documents (
                 id TEXT PRIMARY KEY,
+                user_id TEXT,
                 filename TEXT,
                 vendor_name TEXT,
                 amount REAL,
