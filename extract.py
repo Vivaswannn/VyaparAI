@@ -3,18 +3,15 @@ from google import genai
 from google.genai import types
 import json
 
-# Automatically uses GEMINI_API_KEY from environment
-client = genai.Client()
+client = genai.Client() # Uses GEMINI_API_KEY from .env
 
 async def process_document(file_bytes: bytes, filename: str) -> dict:
     """
-    Converts a document (PDF or Image) to an image and extracts structured
-    data using Gemini 2.5 Flash Vision.
+    Converts a document to an image and extracts structured data using Gemini 3.8 Flash Vision.
     """
     img_bytes = file_bytes
     mime_type = "image/jpeg" if filename.lower().endswith(('.jpg', '.jpeg')) else "image/png"
     
-    # 1. Convert to Image Bytes if PDF
     if filename.lower().endswith('.pdf'):
         pdf_document = fitz.open(stream=file_bytes, filetype="pdf")
         page = pdf_document.load_page(0)
@@ -22,7 +19,6 @@ async def process_document(file_bytes: bytes, filename: str) -> dict:
         img_bytes = pix.tobytes("png")
         mime_type = "image/png"
         
-    # 2. Call Gemini Vision
     prompt = """
     Extract the following details from this invoice/bill:
     - vendor_name

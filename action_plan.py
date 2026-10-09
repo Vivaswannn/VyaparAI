@@ -1,79 +1,73 @@
 import json
-from google import genai
-from google.genai import types
+from groq import AsyncGroq
 from datetime import datetime
 
-client = genai.Client()
+client = AsyncGroq()
 
-async def generate_action_plan(query: str, retrieved_docs: list[dict]) -> dict:
+async def generate_action_plan(query: str, all_docs: list[dict]) -> dict:
     """
-    Takes the user query and the retrieved documents, and uses Gemini 
-    to synthesize a cited action plan.
+    Takes the user query and the entire historical ledger, and uses Groq 
+    to synthesize a macro-level action plan and answer aggregate questions.
     """
     
-    # Format context string
-    context_blocks = []
-    for doc in retrieved_docs:
-        filename = doc.get("filename", "Unknown Document")
-        data = json.dumps(doc.get("extracted_data", {}), indent=2)
-        context_blocks.append(f"--- Document: {filename} ---\n{data}\n")
+    # Format the entire ledger as a structured list for context
+    ledger = []
+    for doc in all_docs:
+        ledger.append({
+            "File": doc["filename"],
+            "Vendor": doc["vendor_name"],
+            "Amount": doc["amount"],
+            "DueDate": doc["due_date"],
+            "Status": doc["payment_status"]
+        })
         
-    context_str = "\n".join(context_blocks)
+    context_str = json.dumps(ledger, indent=2)
     today = datetime.now().strftime("%Y-%m-%d")
     
     prompt = f"""
-    You are VyaparAI, an AI copilot for Indian MSMEs. 
+    You are VyaparAI, an expert AI financial analyst and copilot for Indian MSMEs. 
     Today's date is: {today}
     
-    A user has asked a question: "{query}"
+    The user has asked: "{query}"
     
-    Here is the ONLY business context you have (extracted from their invoices/bills):
+    Here is the complete historical ledger of all their uploaded invoices and bills:
     {context_str}
     
     INSTRUCTIONS:
-    1. Answer the user's question using ONLY the provided document context.
-    2. If the answer is not contained in the documents, explicitly state "I don't have enough information in the uploaded documents." DO NOT hallucinate.
-    3. Generate a summary of your findings.
-    4. Generate a list of recommended actions.
-    5. List the exact filenames of the documents you relied on to make this plan.
+    1. Analyze the ledger data to answer the user's question. Calculate totals, monthly dues, or aggregate data if they ask for it.
+    2. Do NOT hallucinate data. If the answer cannot be calculated from the ledger, explicitly state that.
+    3. Generate a concise summary of your analysis.
+    4. Provide recommended actions based on the analysis (e.g., "Pay Vendor X by Friday").
+    5. List the exact filenames of any specific invoices you referenced in your answer.
+    
+    Return ONLY valid JSON matching this schema exactly:
+    {{
+      "summary": "string",
+      "actions": [
+        {{"text": "string (the action)", "source": "string (the filename cited or 'Aggregate Data')"}}
+      ],
+      "sources_used": ["filename1.pdf", "filename2.jpg"]
+    }}
     """
     
     try:
-        response = await client.aio.models.generate_content(
-            model="gemini-3.8-flash",
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json",
-                response_schema={
-                    "type": "OBJECT",
-                    "properties": {
-                        "summary": {"type": "STRING"},
-                        "actions": {
-                            "type": "ARRAY",
-                            "items": {
-                                "type": "OBJECT",
-                                "properties": {
-                                    "text": {"type": "STRING"},
-                                    "source": {"type": "STRING"}
-                                },
-                                "required": ["text", "source"]
-                            }
-                        },
-                        "sources_used": {
-                            "type": "ARRAY",
-                            "items": {"type": "STRING"}
-                        }
-                    },
-                    "required": ["summary", "actions", "sources_used"]
-                },
-                temperature=0.2
-            )
+        response = await client.chat.completions.create(
+            model="openai/gpt-oss-120b",
+            messages=[
+                {"role": "system", "content": "You are a precise financial assistant that outputs strict JSON."},
+                {"role": "user", "content": prompt}
+            ],
+            response_format={"type": "json_object"},
+            temperature=0.0,
+            max_tokens=1024
         )
-        return json.loads(response.text)
+        
+        result_json = response.choices[0].message.content
+        return json.loads(result_json)
     except Exception as e:
         print(f"Action plan generation error: {e}")
         return {
-            "summary": "Sorry, I encountered an error while analyzing the documents.",
+            "summary": "Sorry, I encountered an error while analyzing your ledger.",
             "actions": [],
             "sources_used": []
         }

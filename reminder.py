@@ -1,7 +1,7 @@
-from google import genai
 import json
+from groq import AsyncGroq
 
-client = genai.Client()
+client = AsyncGroq()
 
 async def generate_reminder_letter(extracted_data: dict) -> str:
     """
@@ -20,11 +20,16 @@ async def generate_reminder_letter(extracted_data: dict) -> str:
     """
     
     try:
-        response = await client.aio.models.generate_content(
-            model="gemini-3.8-flash",
-            contents=prompt,
+        response = await client.chat.completions.create(
+            model="openai/gpt-oss-120b",
+            messages=[
+                {"role": "system", "content": "You are a professional business assistant."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.3,
+            max_tokens=500
         )
-        return response.text
+        return response.choices[0].message.content
     except Exception as e:
         print(f"Reminder generation error: {e}")
         return "Sorry, there was an error generating the reminder letter."
