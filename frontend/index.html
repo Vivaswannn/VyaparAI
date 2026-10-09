@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VyaparAI - Copilot for Indian MSMEs</title>
+    <!-- Tailwind CSS via CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: '#e88a35', // VyaparAI orange from the logo
+                        brandDark: '#cc7525'
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-gray-50 min-h-screen font-sans text-gray-800">
+    
+    <!-- Navbar -->
+    <nav class="bg-white shadow-sm px-6 py-4">
+        <div class="max-w-5xl mx-auto flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="bg-brand text-white w-10 h-10 rounded-full flex items-center justify-center font-bold text-xl">
+                    01
+                </div>
+                <div>
+                    <h1 class="text-2xl font-extrabold tracking-tight text-gray-900">VyaparAI</h1>
+                    <p class="text-xs text-gray-500 font-medium">AI Copilot for Indian MSMEs</p>
+                </div>
+            </div>
+            <div class="text-xs text-gray-400 font-medium hidden sm:block">
+                Avinya 2K26 - SIIC, IIT Kanpur
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-5xl mx-auto px-6 py-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
+        
+        <!-- Left Column: Upload -->
+        <div class="lg:col-span-1 space-y-6">
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <h2 class="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                    <svg class="w-5 h-5 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
+                    Upload Documents
+                </h2>
+                
+                <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-brand transition-colors cursor-pointer" id="drop-zone" onclick="document.getElementById('file-upload').click()">
+                    <svg class="mx-auto h-10 w-10 text-gray-400 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <p class="text-sm text-gray-600 font-medium">Click to upload invoices/bills</p>
+                    <p class="text-xs text-gray-400 mt-1">PDF, JPG, PNG</p>
+                    <input type="file" id="file-upload" class="hidden" multiple accept=".pdf,image/*">
+                </div>
+                
+                <div id="upload-status" class="mt-4 text-sm hidden">
+                    <p class="text-brand font-medium animate-pulse">Uploading and extracting data...</p>
+                </div>
+
+                <div id="document-list" class="mt-6 space-y-2">
+                    <!-- Uploaded files will appear here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column: Query & Results -->
+        <div class="lg:col-span-2 space-y-6">
+            
+            <!-- Query Box -->
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <h2 class="text-lg font-bold text-gray-800 mb-4">Ask VyaparAI</h2>
+                
+                <div class="flex gap-2">
+                    <input type="text" id="query-input" placeholder="e.g., Which payments are overdue and what should I do this week?" class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm">
+                    
+                    <button id="voice-btn" class="bg-gray-100 hover:bg-gray-200 text-gray-600 p-3 rounded-lg transition-colors flex items-center justify-center shrink-0" title="Click to speak">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path></svg>
+                    </button>
+                    
+                    <button id="ask-btn" class="bg-brand hover:bg-brandDark text-white px-6 py-3 rounded-lg font-semibold transition-colors shrink-0">
+                        Ask
+                    </button>
+                </div>
+                <p id="voice-status" class="text-xs text-gray-500 mt-2 hidden">Listening...</p>
+            </div>
+
+            <!-- Results Box -->
+            <div id="results-container" class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hidden">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-lg font-bold text-gray-800">Action Plan</h2>
+                    <span class="text-xs bg-green-100 text-green-800 px-2 py-1 rounded font-medium border border-green-200">AI Synthesized</span>
+                </div>
+                
+                <div id="result-summary" class="prose prose-sm text-gray-600 mb-6">
+                    <!-- Summary here -->
+                </div>
+                
+                <h3 class="text-sm font-bold text-gray-700 mb-3 uppercase tracking-wider">Recommended Actions</h3>
+                <ul id="result-actions" class="space-y-3">
+                    <!-- Actions list here -->
+                </ul>
+
+                <div class="mt-6 pt-4 border-t border-gray-100">
+                    <h3 class="text-xs font-bold text-gray-500 mb-2 uppercase">Sources Relied On</h3>
+                    <div id="result-sources" class="flex flex-wrap gap-2">
+                        <!-- Sources here -->
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <script>
+        // DOM Elements
+        const fileUpload = document.getElementById('file-upload');
+        const uploadStatus = document.getElementById('upload-status');
+        const documentList = document.getElementById('document-list');
+        const queryInput = document.getElementById('query-input');
+        const askBtn = document.getElementById('ask-btn');
+        const voiceBtn = document.getElementById('voice-btn');
+        const voiceStatus = document.getElementById('voice-status');
+        const resultsContainer = document.getElementById('results-container');
+
+        // Handle File Uploads (Scaffold)
+        fileUpload.addEventListener('change', async (e) => {
+            const files = e.target.files;
+            if (files.length === 0) return;
+
+            uploadStatus.classList.remove('hidden');
+            
+            for (let file of files) {
+                const formData = new FormData();
+                formData.append('file', file);
+                
+                try {
+                    const response = await fetch('/api/upload', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    const data = await response.json();
+                    
+                    // Add to UI list
+                    const div = document.createElement('div');
+                    div.className = "flex items-center justify-between bg-gray-50 p-3 rounded-lg border border-gray-200";
+                    div.innerHTML = `
+                        <div class="flex flex-col gap-1 overflow-hidden">
+                            <div class="flex items-center gap-2">
+                                <svg class="w-4 h-4 text-gray-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                                <span class="text-sm text-gray-700 truncate">${file.name}</span>
+                                <span class="text-xs text-green-600 font-medium bg-green-50 px-2 py-0.5 rounded">Extracted</span>
+                            </div>
+                            <button onclick="generateReminder('${data.id}')" class="text-xs text-brand hover:text-brandDark text-left font-medium">Generate Reminder Letter</button>
+                        </div>
+                    `;
+                    documentList.appendChild(div);
+                } catch (error) {
+                    console.error("Error uploading file", error);
+                    alert(`Failed to upload ${file.name}`);
+                }
+            }
+            
+            uploadStatus.classList.add('hidden');
+            fileUpload.value = ''; // reset
+        });
+
+        // Handle Web Speech API (Voice Input)
+        if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            const recognition = new SpeechRecognition();
+            
+            // Indian English / Hindi mix support
+            recognition.lang = 'en-IN'; 
+            recognition.interimResults = false;
+            
+            voiceBtn.addEventListener('click', () => {
+                recognition.start();
+                voiceBtn.classList.add('bg-red-100', 'text-red-600');
+                voiceStatus.classList.remove('hidden');
+            });
+            
+            recognition.onresult = (event) => {
+                const transcript = event.results[0][0].transcript;
+                queryInput.value = transcript;
+            };
+            
+            recognition.onend = () => {
+                voiceBtn.classList.remove('bg-red-100', 'text-red-600');
+                voiceStatus.classList.add('hidden');
+            };
+        } else {
+            voiceBtn.style.display = 'none'; // hide if unsupported
+        }
+
+        // Handle Query Submission (Scaffold)
+        askBtn.addEventListener('click', async () => {
+            const query = queryInput.value.trim();
+            if (!query) return;
+
+            askBtn.disabled = true;
+            askBtn.innerHTML = "Thinking...";
+
+            try {
+                const response = await fetch('/api/query', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query })
+                });
+                const data = await response.json();
+                
+                // Update UI
+                resultsContainer.classList.remove('hidden');
+                document.getElementById('result-summary').textContent = data.summary;
+                
+                const actionsUl = document.getElementById('result-actions');
+                actionsUl.innerHTML = '';
+                data.actions.forEach(action => {
+                    actionsUl.innerHTML += `
+                        <li class="flex items-start gap-2 bg-gray-50 p-3 rounded-lg border border-gray-100">
+                            <svg class="w-5 h-5 text-brand shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                            <div>
+                                <p class="text-sm text-gray-800">${action.text}</p>
+                                <p class="text-xs text-gray-500 mt-1">Source: ${action.source}</p>
+                            </div>
+                        </li>
+                    `;
+                });
+
+                const sourcesDiv = document.getElementById('result-sources');
+                sourcesDiv.innerHTML = '';
+                data.sources_used.forEach(source => {
+                    sourcesDiv.innerHTML += `
+                        <span class="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded border border-gray-200">📄 ${source}</span>
+                    `;
+                });
+
+                // Bonus: Read aloud
+                if ('speechSynthesis' in window) {
+                    const utterance = new SpeechSynthesisUtterance(data.summary);
+                    window.speechSynthesis.speak(utterance);
+                }
+
+            } catch (error) {
+                console.error("Query failed", error);
+                alert("Failed to get response");
+            } finally {
+                askBtn.disabled = false;
+                askBtn.innerHTML = "Ask";
+            }
+        });
+        // Handle Reminder Generation (Bonus)
+        async function generateReminder(documentId) {
+            try {
+                const response = await fetch('/api/reminder', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ document_id: documentId })
+                });
+                const data = await response.json();
+                
+                // For the hackathon, just show it in a JS alert. 
+                // You can style this into a nice modal later!
+                alert("VyaparAI Reminder Letter:\n\n" + data.letter);
+            } catch (error) {
+                console.error("Failed to generate reminder", error);
+                alert("Failed to generate reminder letter.");
+            }
+        }
+    </script>
+</body>
+</html>
