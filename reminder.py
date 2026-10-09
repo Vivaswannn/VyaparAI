@@ -1,12 +1,12 @@
 import json
 from groq import AsyncGroq
 
-client = AsyncGroq()
-
 async def generate_reminder_letter(extracted_data: dict) -> str:
     """
     Generates a polite payment reminder letter based on the extracted invoice data.
     """
+    client = AsyncGroq()
+    
     prompt = f"""
     You are an assistant writing a payment reminder letter on behalf of a small business owner in India.
     

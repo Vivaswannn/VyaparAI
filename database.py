@@ -1,9 +1,14 @@
 import sqlite3
 import json
 import uuid
+import os
 from datetime import datetime
 
-DB_NAME = "vyapar.db"
+# Vercel Serverless environments only allow writing to /tmp
+if os.environ.get("VERCEL"):
+    DB_NAME = "/tmp/vyapar.db"
+else:
+    DB_NAME = "vyapar.db"
 
 def get_connection():
     return sqlite3.connect(DB_NAME)
@@ -26,7 +31,7 @@ def init_db():
         """)
         conn.commit()
 
-def insert_document(filename: str, extracted_data: dict) -> str:
+def insert_document(filename: str, extracted_data: dict, user_id: str = "demo_user") -> str:
     doc_id = str(uuid.uuid4())
     created_at = datetime.now().isoformat()
     
@@ -46,17 +51,17 @@ def insert_document(filename: str, extracted_data: dict) -> str:
     with get_connection() as conn:
         cursor = conn.cursor()
         cursor.execute("""
-            INSERT INTO documents (id, filename, vendor_name, amount, due_date, tax_details, payment_status, raw_json, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (doc_id, filename, vendor, amount, due_date, tax, status, json.dumps(extracted_data), created_at))
+            INSERT INTO documents (id, user_id, filename, vendor_name, amount, due_date, tax_details, payment_status, raw_json, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (doc_id, user_id, filename, vendor, amount, due_date, tax, status, json.dumps(extracted_data), created_at))
         conn.commit()
     return doc_id
 
-def get_all_documents() -> list[dict]:
+def get_all_documents(user_id: str = "demo_user") -> list[dict]:
     with get_connection() as conn:
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM documents ORDER BY created_at DESC")
+        cursor.execute("SELECT * FROM documents WHERE user_id = ? ORDER BY created_at DESC", (user_id,))
         rows = cursor.fetchall()
         
         docs = []
@@ -82,3 +87,17 @@ def get_document_by_id(doc_id: str) -> dict:
         if row:
             return json.loads(row["raw_json"])
     return None
+
+def delete_document(doc_id: str, user_id: str) -> bool:
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM documents WHERE id = ? AND user_id = ?", (doc_id, user_id))
+        conn.commit()
+        return cursor.rowcount > 0
+
+def mark_document_complete(doc_id: str, user_id: str) -> bool:
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("UPDATE documents SET payment_status = 'Completed' WHERE id = ? AND user_id = ?", (doc_id, user_id))
+        conn.commit()
+        return cursor.rowcount > 0

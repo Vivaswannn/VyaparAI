@@ -1,68 +1,64 @@
 import fitz  # PyMuPDF
-from google import genai
-from google.genai import types
 import json
-
-client = genai.Client() # Uses GEMINI_API_KEY from .env
+from groq import AsyncGroq
 
 async def process_document(file_bytes: bytes, filename: str) -> dict:
     """
-    Converts a document to an image and extracts structured data using Gemini 3.8 Flash Vision.
+    Extracts raw text from the PDF using PyMuPDF and uses Groq to convert it to structured JSON.
+    This completely bypasses the flaky Gemini Vision API!
     """
-    img_bytes = file_bytes
-    mime_type = "image/jpeg" if filename.lower().endswith(('.jpg', '.jpeg')) else "image/png"
+    client = AsyncGroq()
     
-    if filename.lower().endswith('.pdf'):
-        pdf_document = fitz.open(stream=file_bytes, filetype="pdf")
-        page = pdf_document.load_page(0)
-        pix = page.get_pixmap()
-        img_bytes = pix.tobytes("png")
-        mime_type = "image/png"
-        
-    prompt = """
-    Extract the following details from this invoice/bill:
+    # 1. Extract raw text locally
+    raw_text = ""
+    try:
+        if filename.lower().endswith('.pdf'):
+            pdf_document = fitz.open(stream=file_bytes, filetype="pdf")
+            for page in pdf_document:
+                raw_text += page.get_text() + "\n"
+        else:
+            return {"error": "For this robust MVP, please upload text-based PDFs only (not raw images)."}
+            
+    except Exception as e:
+        return {"error": f"Failed to read PDF: {e}"}
+
+    # 2. Use Groq to parse the raw text into structured JSON
+    prompt = f"""
+    Extract the following details from this raw invoice text:
     - vendor_name
     - amount (number only, float)
     - due_date (if mentioned, otherwise null)
     - tax_details (any GST or tax info, otherwise null)
-    - payment_status (e.g., Paid, Due, Overdue, Unpaid, otherwise null)
+    - payment_status (e.g., Paid, Due, Overdue, Unpaid, PENDING, otherwise null)
+    
+    RAW TEXT:
+    {raw_text}
+    
+    Return ONLY valid JSON matching this schema exactly:
+    {{
+      "vendor_name": "string",
+      "amount": 0.0,
+      "due_date": "string or null",
+      "tax_details": "string or null",
+      "payment_status": "string or null"
+    }}
     """
     
     try:
-        response = await client.aio.models.generate_content(
-            model='gemini-3.8-flash',
-            contents=[
-                types.Part.from_bytes(data=img_bytes, mime_type=mime_type),
-                prompt
+        response = await client.chat.completions.create(
+            model="openai/gpt-oss-120b",
+            messages=[
+                {"role": "system", "content": "You are a precise data extraction bot. You only output strict JSON."},
+                {"role": "user", "content": prompt}
             ],
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json",
-                response_schema={
-                    "type": "OBJECT",
-                    "properties": {
-                        "vendor_name": {"type": "STRING"},
-                        "amount": {"type": "NUMBER"},
-                        "due_date": {"type": "STRING", "nullable": True},
-                        "tax_details": {"type": "STRING", "nullable": True},
-                        "payment_status": {"type": "STRING", "nullable": True}
-                    },
-                    "required": ["vendor_name", "amount"]
-                }
-            )
+            response_format={"type": "json_object"},
+            temperature=0.0
         )
         
-        result_json = response.text
+        result_json = response.choices[0].message.content
         extracted_data = json.loads(result_json)
         extracted_data['document_name'] = filename
         return extracted_data
     except Exception as e:
-        print(f"Extraction error: {e}")
-        return {
-            "vendor_name": "Unknown",
-            "amount": 0.0,
-            "due_date": None,
-            "tax_details": None,
-            "payment_status": "Unknown",
-            "document_name": filename,
-            "error": str(e)
-        }
+        print(f"Groq Extraction error: {e}")
+        return {"error": str(e)}
